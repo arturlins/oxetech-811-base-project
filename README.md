@@ -1,188 +1,151 @@
-# Oxetech Helpdesk API
+# Oxetech Helpdesk API — Projeto Final Integrador (AV3)
 
-API de chamados de suporte acadêmico, usada como base para exercícios de refatoração incremental ao longo do curso de Engenharia de Software Moderna.
+API REST de chamados de suporte acadêmico construída com Node.js, Express e TypeScript, modernizada e refatorada de forma incremental ao longo do curso de **Engenharia de Software Moderna**.
 
-O objetivo não é reconstruir o sistema do zero, e sim evoluir a aplicação existente em pequenos Pull Requests: identificar problemas técnicos, aplicar os conceitos do curso e justificar as decisões por escrito.
+Este repositório consolida as três etapas de evolução da aplicação (AV1, AV2 e AV3 / Projeto Final Integrador), transformando um monólito legado e inseguro em uma arquitetura limpa em camadas, testável, segura, containerizada e com pipeline de CI automatizado.
+
+---
 
 ## Requisitos
 
 - Node.js 20 ou superior
-- npm
+- npm 10 ou superior
+- Docker (opcional, para execução containerizada)
 
-## Como rodar
+---
 
-Instale as dependências:
+## Como Rodar Localmente
+
+1. **Instalar dependências**:
+   ```bash
+   npm install
+   ```
+
+2. **Gerar dados de teste inicial (obrigatório na primeira execução)**:
+   ```bash
+   npm run seed
+   ```
+
+3. **Executar servidor de desenvolvimento (com hot-reload)**:
+   ```bash
+   npm run dev
+   ```
+
+A API estará disponível em: `http://localhost:3000/api`
+
+---
+
+## Como Rodar com Docker
+
+Execução sem necessidade de ambiente Node local configurado:
 
 ```bash
-npm install
-```
-
-Crie os dados de exemplo (obrigatório na primeira execução):
-
-```bash
-npm run seed
-```
-
-Execute em modo desenvolvimento:
-
-```bash
-npm run dev
-```
-
-A API ficará disponível em `http://localhost:3000/api`.
-
-## Como rodar com Docker
-
-Sem instalar Node localmente, com Docker:
-
-```bash
+# Construir imagem Docker multi-stage
 docker build -t oxetech-helpdesk .
+
+# Executar container (semeia o banco automaticamente)
 docker run --rm -p 3000:3000 oxetech-helpdesk
 ```
 
-O container semeia o banco na primeira execução e sobe a API em `http://localhost:3000/api`. Para persistir os dados entre execuções, monte um volume em `/app/data`:
+Para persistir os dados entre reinicializações do container, monte um volume local no diretório `/app/data`:
 
 ```bash
 docker run --rm -p 3000:3000 -v "$(pwd)/data:/app/data" oxetech-helpdesk
 ```
 
-## Testes e verificação
+---
+
+## Testes e Validação Automatizada
 
 ```bash
-npm test          # executa a suíte de testes (Vitest)
-npm run typecheck # valida os tipos TypeScript (análise estática)
-npm run build     # compila o projeto para dist/
+npm run lint       # Executa o linter (ESLint 9 com typescript-eslint)
+npm run typecheck # Valida a tipagem sem emitir código (tsc --noEmit)
+npm test          # Executa a suíte de 28 testes unitários (Vitest)
+npm run build     # Compila a aplicação TypeScript para dist/
 ```
 
-A suíte cobre as regras de negócio (`TicketService`, cálculo de prioridade), a camada de dados e os middlewares de validação. A mesma sequência (`typecheck` → `test` → `build`) roda automaticamente no CI a cada push e Pull Request.
+> **Integração Contínua (CI):** O workflow do GitHub Actions (`.github/workflows/ci.yml`) executa automaticamente `lint` → `typecheck` → `test` → `build` a cada push ou Pull Request nas branches `main`, `develop`, `feature/av2` e `feature/av3`.
 
-## Scripts
+---
 
-- `npm run dev`: executa a API em modo desenvolvimento (hot reload).
-- `npm run seed`: recria o arquivo de dados inicial em `data/db.json`.
-- `npm run typecheck`: valida os tipos TypeScript sem gerar saída.
-- `npm run build`: compila o projeto para `dist`.
-- `npm start`: executa a versão compilada (`dist/server.js`).
-- `npm test`: executa a suíte de testes com Vitest.
-- `npm run test:watch`: executa os testes em modo observação.
+## Scripts Disponíveis
 
-## Arquitetura
+- `npm run dev`: Inicia o servidor Express em modo de desenvolvimento (`tsx watch`).
+- `npm run seed`: Cria/reseta a base de dados JSON em `data/db.json`.
+- `npm run lint`: Executa a verificação estática do código com o ESLint.
+- `npm run typecheck`: Executa a validação de tipos TypeScript.
+- `npm run build`: Compila o projeto TypeScript para Javascript em `dist/`.
+- `npm start`: Inicia o servidor em ambiente de produção (`node dist/server.js`).
+- `npm test`: Executa todos os testes unitários com Vitest em modo execução única.
+- `npm run test:watch`: Executa os testes em modo interativo/observação.
 
-A partir da Avaliação 2, a aplicação segue uma arquitetura em camadas com injeção de dependências manual, isolando transporte HTTP, regra de negócio e persistência:
+---
 
-```
-Cliente HTTP
-   │
-   ▼
-Rotas (src/routes.ts) ── Middlewares (validação de entrada + tratamento de erro)
-   │
-   ▼
-Controllers (src/controllers/)   → leem a requisição HTTP e delegam
-   │
-   ▼
-Services (src/services/)         → regras de negócio puras, sem dependência do Express
-   │
-   ▼
-Repositories (src/repositories/) → acesso aos dados (arquivo JSON)
-   │
-   ▼
-Banco (data/db.json)
-```
+## Arquitetura e Padrões de Projeto
 
-Padrões aplicados:
+A aplicação foi completamente refatorada para a **Arquitetura em Camadas (Decoupled Layered Architecture)** com injeção de dependências manual:
 
-- **Repository Pattern**: `UserRepository` e `TicketRepository` isolam o acesso ao banco, permitindo trocar a persistência sem alterar a regra de negócio.
-- **Strategy Pattern**: o cálculo de prioridade é decomposto em regras independentes (`IPriorityRule`) avaliadas pelo `PriorityCalculator`, permitindo adicionar novas regras sem modificar o fluxo principal.
-- **Injeção de dependências**: repositórios e serviços são injetados via construtor; a composição acontece em `src/routes.ts`.
-
-Validação de entrada e tratamento de erro são centralizados: `src/middlewares/validation.middleware.ts` valida o corpo das requisições no runtime, e `src/middlewares/error.middleware.ts`, junto com a classe `AppError`, padroniza todas as respostas de erro no formato `{ "error": "..." }`.
-
-## Endpoints principais
-
-### Healthcheck
-
-```http
-GET /api/health
+```mermaid
+graph TD
+    Client[Cliente HTTP] --> Server[Express App / server.ts]
+    Server --> Logger[Logger Middleware]
+    Server --> Routes[Rotas: src/routes.ts]
+    Routes --> Validation[Validation & Sanitization Middleware]
+    Routes --> Controllers[Controllers: src/controllers/]
+    Controllers --> Services[Services: src/services/]
+    Services --> Repositories[Repositories: src/repositories/]
+    Repositories --> Database[Database Access: src/database.ts]
+    Database --> JSONFile[(data/db.json)]
 ```
 
-### Listar usuários
+### Padrões Aplicados
 
-```http
-GET /api/users
-```
+1. **Repository Pattern (`src/repositories/`)**:
+   - `UserRepository` e `TicketRepository` desacoplam o acesso aos dados em arquivo JSON. A regra de negócio não possui qualquer acoplamento com o método de persistência.
+2. **Strategy Pattern (`src/services/TicketService.ts`)**:
+   - As regras de cálculo de prioridade foram decompostas em estratégias isoladas (`UrgentPriorityRule`, `HighPriorityRule`, `MediumPriorityRule`, `DefaultPriorityRule`) que implementam a interface `IPriorityRule`. O `PriorityCalculator` encadeia a avaliação das regras de forma extensível sem condicionais aninhadas.
+3. **Dependency Injection (Injeção de Dependências)**:
+   - Repositórios e serviços são injetados via construtor nas classes de serviço e controlador, facilitando mockagem em suítes de testes unitários.
+4. **Middlewares Centralizados**:
+   - **`logger.middleware.ts`**: Registra requisições HTTP com timestamps, status code e tempo de resposta.
+   - **`validation.middleware.ts`**: Executa validações de tipo, enums, strings não vazias e sanitização contra Script Injection (`sanitize.util.ts`).
+   - **`error.middleware.ts`**: Intercepta exceções operacionais `AppError` e erros inesperados, padronizando a resposta HTTP em `{ "error": "mensagem" }`.
 
-### Listar chamados
+---
 
-```http
-GET /api/tickets
-GET /api/tickets?status=open
-GET /api/tickets?category=infra
-GET /api/tickets?search=login
-```
+## Endpoints da API
 
-### Resumo dos chamados
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET` | `/api/health` | Diagnóstico de integridade, uptime e verificação de banco de dados |
+| `GET` | `/api/users` | Lista usuários do sistema (sem expor a propriedade `password`) |
+| `GET` | `/api/tickets` | Lista chamados (suporta filtros: `?status=`, `?category=`, `?search=`) |
+| `GET` | `/api/tickets/summary` | Retorna o resumo consolidado de status e chamados urgentes |
+| `GET` | `/api/tickets/:id` | Detalha um chamado com solicitante, responsável e comentários enriquecidos |
+| `POST` | `/api/tickets` | Cria um novo chamado (valida `category`, calcula prioridade e gera UUID) |
+| `PATCH` | `/api/tickets/:id/status` | Atualiza o status de um chamado (exige comentário se `closed`) |
+| `POST` | `/api/tickets/:id/comments` | Adiciona um comentário a um chamado existente |
 
-```http
-GET /api/tickets/summary
-```
+---
 
-### Detalhar chamado
+## Histórico de Evolução (AV1 → AV2 → AV3)
 
-```http
-GET /api/tickets/ticket_001
-```
-
-### Criar chamado
-
-```http
-POST /api/tickets
-Content-Type: application/json
-
-{
-  "title": "Nao consigo enviar atividade",
-  "description": "O sistema apresenta erro ao anexar o arquivo da atividade.",
-  "category": "sistemas",
-  "requesterId": "user_ana"
-}
-```
-
-`category` aceita apenas `infra`, `sistemas` ou `academico`. Campos em branco ou tipos inválidos são rejeitados com HTTP 400.
-
-### Atualizar status
-
-```http
-PATCH /api/tickets/ticket_001/status
-Content-Type: application/json
-
-{
-  "status": "in_progress",
-  "authorId": "user_carla",
-  "comment": "Chamado em atendimento."
-}
-```
-
-`status` aceita `open`, `in_progress`, `resolved` ou `closed`. Fechar um chamado (`closed`) exige um `comment`.
-
-### Adicionar comentário
-
-```http
-POST /api/tickets/ticket_001/comments
-Content-Type: application/json
-
-{
-  "authorId": "user_carla",
-  "message": "Solicitei mais informacoes ao usuario."
-}
-```
-
-## Jornada de refatoração
-
-Trabalhe em Pull Requests pequenos e bem explicados. Em cada PR, registre:
-
-- quais problemas você encontrou;
-- quais melhorias foram feitas;
-- quais conceitos do curso foram aplicados;
-- como você verificou que o comportamento continua funcionando;
-- quais limitações continuam existindo.
-
-Consulte [docs/CHECKPOINTS.md](docs/CHECKPOINTS.md) para entender o escopo esperado de cada entrega.
+- **AV1 (Refatoração Inicial & Clean Code)**:
+  - Correção da falha de segurança em `GET /users` (ocultação de senhas com `PublicUser`).
+  - Desacoplamento inicial de `database.ts`.
+  - Remoção de números mágicos (`220`) e strings mágicas (`TicketStatus`, `TicketCategory`).
+  - Padronização das respostas de erro HTTP com `{ "error": "..." }`.
+- **AV2 (Arquitetura, Testes, Docker & CI)**:
+  - Reestruturação completa em camadas (Repository → Service → Controller).
+  - Otimização do algoritmo `enrichTicket` de $O(N \times M)$ para $O(N + M + C)$ via `Map`.
+  - Aplicação do Strategy Pattern para cálculo de prioridades.
+  - Implementação de middleware de validação de entrada e tratamento de erro global.
+  - Ocultação visual de diffs de lockfile via `.gitattributes`.
+  - Criação de Dockerfile multi-stage e pipeline do GitHub Actions (CI).
+- **AV3 (Projeto Final Integrador)**:
+  - Adição de middleware de logging de requisições HTTP (`logger.middleware.ts`).
+  - Aprimoramento do endpoint `/api/health` com diagnósticos em tempo real de uptime e banco de dados.
+  - Substituição de geradores de ID com timestamp por UUIDs nativos seguros (`crypto.randomUUID()`).
+  - Implementação de sanitização de strings contra Script Injection / XSS (`sanitize.util.ts`).
+  - Expansão da suíte de testes unitários para 28 testes automatizados cobrindo controllers, middlewares e utilitários.
+  - Documentação final consolidada e Relatório de Evolução Integrador (`PR_AV3.md`).
