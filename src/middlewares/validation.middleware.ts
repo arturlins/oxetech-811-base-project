@@ -1,9 +1,22 @@
 import type { Request, Response, NextFunction } from "express";
 import { AppError } from "../errors/AppError";
 import type { TicketCategory, TicketStatus } from "../types";
+import { sanitizeString } from "../utils/sanitize.util";
+
+export function sanitizeBodyFields(body: unknown): void {
+  if (body && typeof body === "object" && !Array.isArray(body)) {
+    const record = body as Record<string, unknown>;
+    for (const key of Object.keys(record)) {
+      if (typeof record[key] === "string") {
+        record[key] = sanitizeString(record[key] as string);
+      }
+    }
+  }
+}
 
 export function validateBody(validateFn: (body: unknown) => string | null) {
   return (request: Request, _response: Response, next: NextFunction): void => {
+    sanitizeBodyFields(request.body);
     const errorMsg = validateFn(request.body);
     if (errorMsg) {
       next(new AppError(errorMsg, 400));
@@ -12,6 +25,7 @@ export function validateBody(validateFn: (body: unknown) => string | null) {
     next();
   };
 }
+
 
 export function validateCreateTicket(body: unknown): string | null {
   if (!body || typeof body !== "object") return "Corpo da requisição ausente";
