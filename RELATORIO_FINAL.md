@@ -55,7 +55,28 @@ A modernização da aplicação seguiu uma abordagem incremental e fundamentada 
 
 ---
 
-## 4. Conceitos de Engenharia de Software Aplicados
+## 4. Decisões Técnicas e Justificativas
+
+Cada solução aplicada envolveu uma escolha entre alternativas. Esta seção explicita o raciocínio por trás das principais decisões, evitando que a evolução pareça uma lista arbitrária de tecnologias adicionadas.
+
+| Decisão Tomada | Alternativas Consideradas | Motivo da Escolha |
+|---|---|---|
+| Ocultar senha com `Omit<User, "password">` + desestruturação manual | Biblioteca de serialização (`class-transformer` com `@Exclude`); hash mascarado no retorno | O volume de dados sensíveis é pequeno e o risco era vazamento total do campo. Uma solução nativa do TypeScript resolve o problema sem adicionar dependência para um caso de uso pontual. |
+| Arquitetura em 3 camadas com Injeção de Dependência **manual** via construtor | Container de IoC (InversifyJS, tsyringe) ou migração completa para um framework como NestJS | O escopo do curso não exige um container de DI — a aplicação é pequena o suficiente para que a injeção manual seja legível e não introduza a complexidade de configuração de um framework maior. |
+| **Strategy Pattern** para regras de prioridade (`IPriorityRule`) | Manter os `if/else` originais; usar um motor de regras (`json-rules-engine`) | Resolve o OCP pedido pelo curso (novas regras sem alterar o `PriorityCalculator`) com uma estrutura simples de entender, sem trazer uma dependência de regras que seria over-engineering para 4 categorias de prioridade. |
+| **Repository Pattern** sobre arquivo JSON, sem migrar já para um banco relacional | Migrar diretamente para PostgreSQL/Prisma nesta etapa | A interface (`ITicketRepository`, `IUserRepository`) isola a troca futura de armazenamento sem reescrever a camada de serviço. Trocar o banco agora fugiria do escopo "evolução gradual, sem reescrever tudo" definido pela metodologia do curso — por isso a limitação é registrada explicitamente na seção 8, e não escondida. |
+| Indexação em `Map` para otimizar `enrichTicket` (O(N×M) → O(N+M+C)) | Adicionar um banco real com índices; memoizar resultados de `.find()` | Os dados cabem inteiramente em memória (JSON pequeno), então `Map` entrega busca O(1) sem custo de infraestrutura adicional — resolve o gargalo de performance identificado sem exigir uma camada de persistência mais pesada. |
+| `crypto.randomUUID()` nativo do Node.js para IDs | Pacotes `uuid` ou `nanoid` | A API nativa (Node ≥ 14.17) atende ao RFC 4122 v4 com a mesma garantia criptográfica das bibliotecas, sem adicionar dependência externa só para gerar um identificador. |
+| Sanitização por regex própria (`sanitize.util.ts`) | `DOMPurify` ou `sanitize-html` | A API é puramente JSON — não há renderização de HTML no servidor. Remover todas as tags via regex é suficiente para o caso de uso e evita trazer `DOMPurify` (que depende de `jsdom` no server) apenas para strip básico de marcação. **Trade-off assumido:** regex não é tão robusta quanto um parser HTML real contra entradas deliberadamente malformadas; adequado ao escopo do curso, mas seria o primeiro ponto a revisar antes de um ambiente de produção real com conteúdo HTML confiável. |
+| Logging via `console.log` + `res.on("finish")`, sem lib estruturada | Winston ou Pino com formatação JSON e níveis de log | O documento de avaliação exclui explicitamente "observabilidade avançada" do escopo. Um log de acesso simples (método, rota, status, tempo) já atende ao critério de "logs simples" listado como diferencial, sem exigir configuração de transporte/formatação de uma lib de logging. |
+| Healthcheck lendo o próprio `data/db.json` e validando os arrays | Simular um serviço de banco externo (mock de latência/ping) | Como a "base de dados" do projeto é o próprio arquivo JSON, testar sua leitura e integridade estrutural é a verificação mais fiel possível ao ambiente real da aplicação — evita um healthcheck que apenas retorna "ok" sem checar nada de fato. |
+| Validação de schema com funções próprias (`validateCreateTicket`, etc.), sem lib externa | Zod, Joi ou Yup | Mantém a validação explícita e sem curva de aprendizado de uma DSL de schema, coerente com o pedido da AV2 de "validação de entrada em pontos necessários" no nível introdutório do curso — sem exigir uma dependência adicional para regras simples de obrigatoriedade e enum. |
+| Dockerfile **multi-stage** | Dockerfile de estágio único | Separa as dependências de build (`devDependencies`, compilador TypeScript) das de runtime, reduzindo o tamanho da imagem final publicada — boa prática básica de Docker que não exige orquestração ou ferramentas adicionais. |
+| Pipeline CI na ordem `lint → typecheck → test → build` | Rodar tudo em paralelo, ou começar pelo build | Ordem de "fail fast": lint e typecheck são as verificações mais rápidas e baratas de rodar, então falham (e economizam tempo de CI) antes de chegar aos testes e à compilação completa. |
+
+---
+
+## 5. Conceitos de Engenharia de Software Aplicados
 
 1. **Clean Code & Manutenibilidade**:
    - Nomes com revelação de intenção (`LONG_DESCRIPTION_THRESHOLD`, `PublicUser`, `sanitizeString`).
@@ -74,7 +95,7 @@ A modernização da aplicação seguiu uma abordagem incremental e fundamentada 
 
 ---
 
-## 5. Comparativo "Antes e Depois" do Código (Exemplos Práticos desde o Início)
+## 6. Comparativo "Antes e Depois" do Código (Exemplos Práticos desde o Início)
 
 ### Exemplo 1: Proteção de Dados Sensíveis (Usuários)
 
@@ -246,7 +267,7 @@ export function sanitizeString(input: string): string {
 
 ---
 
-## 6. Evidências de Funcionamento
+## 7. Evidências de Funcionamento
 
 A suíte de testes passou por um crescimento consistente ao longo do projeto:
 
@@ -277,7 +298,7 @@ Validação do Pipeline CI e Builds:
 
 ---
 
-## 7. Limitações Conhecidas e Próximos Passos
+## 8. Limitações Conhecidas e Próximos Passos
 
 ### Limitações Conhecidas
 1. **Persistência Local Síncrona**: O banco de dados continua sendo um arquivo JSON manipulado via I/O síncrono. Em produção com alta concorrência, isso gera gargalo no event loop do Node.js.
