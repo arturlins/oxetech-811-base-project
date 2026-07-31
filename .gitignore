@@ -5,4 +5,7 @@ dist/
 npm-debug.log*
 
 TEACHER_GUIDE.md
-GUIA_REFATORACAO_*.md
+GUIA_REFATORACAO_*.md
+PR_AV*.md
+PR_GUIA.md
+Avaliações Engenharia de Software Moderna.md
