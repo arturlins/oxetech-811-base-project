@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { readDatabase } from "./database";
 import { UserRepository } from "./repositories/UserRepository";
 import { TicketRepository } from "./repositories/TicketRepository";
 import { UserService } from "./services/UserService";
@@ -26,8 +27,27 @@ const ticketController = new TicketController(ticketService);
 
 // Healthcheck
 router.get("/health", (_request, response) => {
-  response.json({ status: "ok", service: "oxetech-helpdesk" });
+  let dbHealthy = false;
+  try {
+    const db = readDatabase();
+    dbHealthy = Array.isArray(db.users) && Array.isArray(db.tickets);
+  } catch {
+    dbHealthy = false;
+  }
+
+  response.json({
+    status: dbHealthy ? "ok" : "degraded",
+    service: "oxetech-helpdesk",
+    version: "1.0.0",
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+    database: {
+      healthy: dbHealthy,
+      provider: "JSON Storage",
+    },
+  });
 });
+
 
 // Rotas de Usuário
 router.get("/users", userController.listUsers);
