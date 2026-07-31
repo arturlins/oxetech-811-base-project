@@ -2,6 +2,7 @@ import type { ITicketRepository } from "../repositories/TicketRepository";
 import type { IUserRepository } from "../repositories/UserRepository";
 import { AppError } from "../errors/AppError";
 import type { Ticket, TicketCategory, TicketComment, TicketPriority, TicketStatus } from "../types";
+import { generateId } from "../utils/id.util";
 
 // ==========================================
 // Strategy Pattern: Regras de Prioridade
@@ -75,9 +76,6 @@ export class TicketService {
     private userRepository: IUserRepository
   ) {}
 
-  private generateId(prefix: string): string {
-    return `${prefix}_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-  }
 
   listTickets(filters?: { status?: string; category?: string; search?: string }) {
     const tickets = this.ticketRepository.findAll(filters);
