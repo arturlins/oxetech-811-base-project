@@ -4,7 +4,10 @@ API REST de chamados de suporte acadêmico construída com Node.js, Express e Ty
 
 Este repositório consolida as três etapas de evolução da aplicação (AV1, AV2 e AV3 / Projeto Final Integrador), transformando um monólito legado e inseguro em uma arquitetura limpa em camadas, testável, segura, containerizada e com pipeline de CI automatizado.
 
+> 📄 **Relatório Final da Evolução da Aplicação:** Para visualizar a justificativa completa de todas as decisões técnicas, histórico detalhado da refatoração e comparativos de código *Antes e Depois* desde o início do projeto, acesse o [**RELATORIO_FINAL.md**](file:///D:/Workspaces/OxeTech/oxetech-811-base-project/RELATORIO_FINAL.md).
+
 ---
+
 
 ## Requisitos
 
