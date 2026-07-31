@@ -195,7 +195,7 @@ export class TicketService {
     const priority = this.priorityCalculator.calculate(data.category, data.description);
 
     const ticket: Ticket = {
-      id: this.generateId("ticket"),
+      id: generateId("ticket"),
       title: data.title,
       description: data.description,
       category: data.category,
@@ -230,7 +230,7 @@ export class TicketService {
       }
 
       this.ticketRepository.createComment({
-        id: this.generateId("comment"),
+        id: generateId("comment"),
         ticketId: ticket.id,
         authorId,
         message: data.comment,
@@ -256,7 +256,7 @@ export class TicketService {
     }
 
     const comment: TicketComment = {
-      id: this.generateId("comment"),
+      id: generateId("comment"),
       ticketId: ticket.id,
       authorId: data.authorId,
       message: data.message,
